@@ -1,6 +1,6 @@
 //the broadcaster's code
 window.onload = () => {
-    document.getElementById("startStream").onclick = () => {
+    document.getElementById("my-button").onclick = () => {
       init();
     };
   };
