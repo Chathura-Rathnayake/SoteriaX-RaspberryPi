@@ -10,6 +10,33 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
 
+//the consumer will ask for the broadcaster stream from the server via this endpoint
+app.post("/consumer", async ({ body }, res) => {
+    const peer = new webrtc.RTCPeerConnection();
+    //       {
+    //     iceServers: [
+    //       {
+    //         urls: "stun:stun.stunprotocol.org:3478",
+    //       },
+    //     ],
+    //   }
+    const desc = new webrtc.RTCSessionDescription(body.sdp); //getting the consumer sdp (consumers offer)
+    await peer.setRemoteDescription(desc); //setting it as the remote peer description
+    //senderStream is the stream sent by broadcaster
+    //what we received from broadcaster will be transmitted to the consumer
+    senderStream
+      .getTracks()
+      .forEach((track) => peer.addTrack(track, senderStream));
+    const answer = await peer.createAnswer(); //create my answer to the consumer offer
+    await peer.setLocalDescription(answer); 
+    const payload = {
+      sdp: peer.localDescription,
+    };
+  
+    res.json(payload); //sending my answer to the peer
+  });
+  
+
 //the broadcaster will send its stream to the server via this endpoint
 app.post("/broadcast", async ({ body }, res) => {
   const peer = new webrtc.RTCPeerConnection(); //returns a newly-created RTCPeerConnection, which represents a connection between the local device and a remote peer.
