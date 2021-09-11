@@ -1,8 +1,13 @@
-const express = require("express");
+import express from "express";
 const app = express();
-const bodyParser = require("body-parser"); //allows express to read the body and then parse that into a json object
-const webrtc = require("wrtc"); //allows to make our server a webRTC endpoint (it allows other peers to connect to this)
-var cors = require("cors");
+
+import bodyParser from "body-parser"; //allows express to read the body and then parse that into a json object
+import webrtc from "wrtc"; //allows to make our server a webRTC endpoint (it allows other peers to connect to this)
+import cors from "cors";
+
+//open the index.html file automatically
+import openurl from "openurl";
+openurl.open("http://localhost:5000/");
 
 let senderStream; //this variable contains the stream received from the broadcaster (from the pi camera)
 app.use(express.static("public"));
