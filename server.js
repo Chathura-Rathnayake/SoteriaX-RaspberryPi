@@ -12,30 +12,36 @@ app.use(cors());
 
 //the consumer will ask for the broadcaster stream from the server via this endpoint
 app.post("/consumer", async ({ body }, res) => {
-    const peer = new webrtc.RTCPeerConnection();
-    //       {
-    //     iceServers: [
-    //       {
-    //         urls: "stun:stun.stunprotocol.org:3478",
-    //       },
-    //     ],
-    //   }
-    const desc = new webrtc.RTCSessionDescription(body.sdp); //getting the consumer sdp (consumers offer)
-    await peer.setRemoteDescription(desc); //setting it as the remote peer description
-    //senderStream is the stream sent by broadcaster
-    //what we received from broadcaster will be transmitted to the consumer
-    senderStream
-      .getTracks()
-      .forEach((track) => peer.addTrack(track, senderStream));
-    const answer = await peer.createAnswer(); //create my answer to the consumer offer
-    await peer.setLocalDescription(answer); 
-    const payload = {
-      sdp: peer.localDescription,
-    };
-  
-    res.json(payload); //sending my answer to the peer
-  });
-  
+  const peer = new webrtc.RTCPeerConnection();
+
+  //       {
+  //     iceServers: [
+  //       {
+  //         urls: "stun:stun.stunprotocol.org:3478",
+  //       },
+  //     ],
+  //   }
+
+  //parsing the sdp received from mobile or web
+  const theSDP = JSON.parse(body.sdp);
+  // console.log(theSDP);
+  // console.log(body.missionId);
+  // console.log(body.missionType);
+  const desc = new webrtc.RTCSessionDescription(theSDP); //getting the consumer sdp (consumers offer)
+  await peer.setRemoteDescription(desc); //setting it as the remote peer description
+  //senderStream is the stream sent by broadcaster
+  //what we received from broadcaster will be transmitted to the consumer
+  senderStream
+    .getTracks()
+    .forEach((track) => peer.addTrack(track, senderStream));
+  const answer = await peer.createAnswer(); //create my answer to the consumer offer
+  await peer.setLocalDescription(answer);
+  const payload = {
+    sdp: peer.localDescription,
+  };
+
+  res.json(payload); //sending my answer to the peer
+});
 
 //the broadcaster will send its stream to the server via this endpoint
 app.post("/broadcast", async ({ body }, res) => {
@@ -72,4 +78,6 @@ function handleTrackEvent(e, peer) {
   senderStream = e.streams[0]; //getting the stream from broadcaster to senderStream vairiable
 }
 
-app.listen(5000, () => console.log("The RaspberryPi server is up and running.!"));
+app.listen(5000, () =>
+  console.log("The RaspberryPi server is up and running.!")
+);
