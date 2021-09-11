@@ -10,10 +10,22 @@ import openurl from "openurl";
 openurl.open("http://localhost:5000/");
 
 let senderStream; //this variable contains the stream received from the broadcaster (from the pi camera)
+let missionId = "";
+let missionType = "";
+
 app.use(express.static("public"));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
+
+app.post("/retrieveMissionData", async ({ body }, res) => {
+  console.log(body.test);
+  const payload = {
+    missionId: missionId,
+    missionType: missionType,
+  };
+  res.json(payload); //sending the current mission data
+});
 
 //the consumer will ask for the broadcaster stream from the server via this endpoint
 app.post("/consumer", async ({ body }, res) => {
@@ -27,11 +39,13 @@ app.post("/consumer", async ({ body }, res) => {
   //     ],
   //   }
 
+  //set values retrieved from web/mobile to these global variables
+  missionId = body.missionId;
+  missionType = body.missionType;
+
   //parsing the sdp received from mobile or web
   const theSDP = JSON.parse(body.sdp);
-  // console.log(theSDP);
-  // console.log(body.missionId);
-  // console.log(body.missionType);
+
   const desc = new webrtc.RTCSessionDescription(theSDP); //getting the consumer sdp (consumers offer)
   await peer.setRemoteDescription(desc); //setting it as the remote peer description
   //senderStream is the stream sent by broadcaster
