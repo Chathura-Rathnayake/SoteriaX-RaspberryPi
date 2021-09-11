@@ -140,47 +140,120 @@ navigator.mediaDevices
       console.log(data.missionId);
       console.log(data.missionType);
       //if both of those values are not empty, (that means a mobile has connected to the Pi board)
-      if (data.missionId != "" && data.missionId != "") {
+      if (data.missionId != "" && data.missionType != "") {
         //stop the interval function
         clearInterval(apiRequestTimer);
         //clear the 30 minute timeout - (stop RasPi from shutting down)
         clearTimeout(shutDownTimeout);
         //setup mission data
         let missionId = data.missionId;
-        let missionType = data.missionId;
-        console.log("all good");
+        let missionType = data.missionType;
+
         ///now we can communicate with firebase to complete next steps///
 
         //listen to database to see whether the mission has been ended. Then end the recording and upload it.
+        //if this is an operation (a real one)
+        if (missionType === "operation") {
+          const unsub = onSnapshot(doc(db, "operations", missionId), (doc) => {
+            //if the mission has ended
+            if (doc.data().currentStage == 5) {
+              //stop the recording
+              mediaRecorder.stop(); //stop the recording
+              console.log("Stopped the recording - operation");
+            }
+          });
+        } else {
+          //else this is a training operation
+          const unsub = onSnapshot(
+            doc(db, "trainingOperations", missionId),
+            (doc) => {
+              //if the mission has ended
+              if (doc.data().currentStage == 5) {
+                //stop the recording
+                mediaRecorder.stop(); //stop the recording
+                console.log("Stopped the recording - training");
+              }
+            }
+          );
+        }
 
-        //function to wait 5 seconds (for testing purposes)
-        const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+        // //function to wait 5 seconds (for testing purposes)
+        // const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-        const letsWait = async () => {
-          console.log("starting the wait");
-          await delay(5000);
-          console.log("Waited 5s");
-          mediaRecorder.stop(); //stop the recording
-        };
+        // const letsWait = async () => {
+        //   console.log("starting the wait");
+        //   await delay(5000);
+        //   console.log("Waited 5s");
+        //   mediaRecorder.stop(); //stop the recording
+        // };
 
-        letsWait(); //let's wait 5 seconds
+        // letsWait(); //let's wait 5 seconds
 
         //this runs whenever the recording of the video get stopped
         mediaRecorder.onstop = (ev) => {
           let blob = new Blob(chunks, { type: "video/webm;" });
           chunks = [];
 
-          ///upload the recorded video to the firebase storage///
+          //Get a reference to the storage service
+          const storage = getStorage();
+          // Create a storage reference from storage service
+          const storageRef = ref(
+            storage,
+            `${missionType}/${uid}/${missionId}.webm`
+          );
 
-          // //Get a reference to the storage service
-          // const storage = getStorage();
-          // // Create a storage reference from storage service
-          // const storageRef = ref(storage, "vids/test1.webm");
-          // // uploading the blob to the firebase
-          // uploadBytes(storageRef, blob).then((snapshot) => {
-          //   console.log("Uploaded the recording to Firebase successfully!");
-          // });
-          console.log("test done");
+          if (missionType === "operation") {
+            console.log("going to upload the video");
+            async function updateOperations1() {
+              //change the currentStage to uploading
+              const documentRef = doc(db, "operations", missionId);
+              await updateDoc(documentRef, {
+                currentStage: 6, //stage is uploading
+              });
+            }
+            updateOperations1();
+            // uploading the blob to the firebase
+            uploadBytes(storageRef, blob).then((snapshot) => {
+              console.log(
+                "operation - Uploaded the recording to Firebase successfully!"
+              );
+              const documentRef = doc(db, "operations", missionId);
+              //set the currentStage to 7 and change the operationStatus
+              async function updateOperations2() {
+                await updateDoc(documentRef, {
+                  currentStage: 7, //stage is uploading
+                  operationStatus: "ended", //status is "ended"
+                });
+              }
+              updateOperations2();
+            });
+          } else {
+            //else the mission type is training
+            console.log("going to upload the video");
+            async function updateTraining1() {
+              //change the currentStage to uploading
+              const documentRef = doc(db, "trainingOperations", missionId);
+              await updateDoc(documentRef, {
+                currentStage: 6, //stage is uploading
+              });
+            }
+            updateTraining1();
+            // uploading the blob to the firebase
+            uploadBytes(storageRef, blob).then((snapshot) => {
+              console.log(
+                "training - Uploaded the recording to Firebase successfully!"
+              );
+              //set the currentStage to 7 and change the completed flag
+              async function updateTraining2() {
+                const documentRef = doc(db, "trainingOperations", missionId);
+                await updateDoc(documentRef, {
+                  currentStage: 7, //stage is uploading
+                  completed: true, //setting the completed to true
+                });
+              }
+              updateTraining2();
+            });
+          }
         };
       }
     }
