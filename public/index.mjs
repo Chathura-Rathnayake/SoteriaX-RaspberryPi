@@ -1,3 +1,43 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-app.js";
+
+import {
+  getFirestore,
+  collection,
+  getDocs,
+} from "https://www.gstatic.com/firebasejs/9.0.2/firebase-firestore-lite.js";
+
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+} from "https://www.gstatic.com/firebasejs/9.0.2/firebase-storage.js";
+
+// import {} from "https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAe-fOTdVrVDkBjL7J4Z8Y_MsqO_hWSVp8",
+  authDomain: "soteriax-las.firebaseapp.com",
+  projectId: "soteriax-las",
+  storageBucket: "soteriax-las.appspot.com",
+  messagingSenderId: "842439281384",
+  appId: "1:842439281384:web:353ec16d4aa1c5c7d1975d",
+  measurementId: "G-HC9W82JVVW",
+};
+
+// const app = initializeApp(firebaseConfig);
+// const db = getFirestore(app);
+
+// // Get a list of cities from your database
+// async function getCities(db) {
+//   const citiesCol = collection(db, "complaints");
+//   const citySnapshot = await getDocs(citiesCol);
+//   const cityList = citySnapshot.docs.map((doc) => {
+//     console.log(doc.data());
+//   });
+//   return cityList;
+// }
+// getCities(db);
+
 let constraintObj = { video: true }; //contraints for getUserMedia object
 
 navigator.mediaDevices
@@ -64,8 +104,16 @@ navigator.mediaDevices
       let blob = new Blob(chunks, { type: "video/webm;" });
       chunks = [];
 
-      //upload the recorded video to the firebase storage
-      console.log("done");
+      ///upload the recorded video to the firebase storage///
+
+      // Get a reference to the storage service
+      const storage = getStorage();
+      // Create a storage reference from storage service
+      const storageRef = ref(storage, "vids/test.webm");
+      // uploading the blob to the firebase
+      uploadBytes(storageRef, blob).then((snapshot) => {
+        console.log("Uploaded the blob!");
+      });
     };
   })
   .catch(function (err) {
