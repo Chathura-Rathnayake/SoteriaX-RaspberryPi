@@ -1,10 +1,10 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-app.js";
 
-import {
-  getFirestore,
-  collection,
-  getDocs,
-} from "https://www.gstatic.com/firebasejs/9.0.2/firebase-firestore-lite.js";
+// import {
+//   getFirestore,
+//   collection,
+//   getDocs,
+// } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-firestore-lite.js"; --no work for some cases
 
 import {
   getStorage,
@@ -12,7 +12,14 @@ import {
   uploadBytes,
 } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-storage.js";
 
-// import {} from "https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js";
+import {
+  getFirestore,
+  doc,
+  updateDoc,
+  collection,
+  getDoc,
+  onSnapshot,
+} from "https://www.gstatic.com/firebasejs/9.0.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAe-fOTdVrVDkBjL7J4Z8Y_MsqO_hWSVp8",
@@ -44,29 +51,9 @@ let constraintObj = { video: true }; //contraints for getUserMedia object
 let shutDownTimeout = setTimeout(shutDown, 1800000); //the shutDown function will be called after 30 minutes (if we didn't receive mission data within 30 minutes)
 
 function shutDown() {
-  //perform an API request to shutdown the RasPi
+  //TODO: perform an API request to shutdown the RasPi
+  //maybe first stop the server and 2 second interval timing (then recording and all stuff get stopped), and then we can perform shutdown
   console.log("We are going to shutdown");
-}
-
-let apiRequestTimer = setInterval(apiRequest, 5000); //perform this API request for each 5 second
-
-async function apiRequest() {
-  const payload = {
-    test: "hi",
-  };
-  const { data } = await axios.post("/retrieveMissionData", payload);
-  console.log(data.missionId);
-  console.log(data.missionType);
-  //if both of those values are not empty,
-  if (data.missionId != "" && data.missionType != "") {
-    //stop the interval function
-    clearInterval(apiRequestTimer);
-    //clear the 30 minute timeout - (stop RasPi from shutting down)
-    clearTimeout(shutDownTimeout);
-    //setup mission data
-    console.log("all good");
-    //all the other code - to comm with firebase and stuff
-  }
 }
 
 navigator.mediaDevices
@@ -78,6 +65,11 @@ navigator.mediaDevices
 
     //start the recodring
     mediaRecorder.start();
+
+    //storing the video recording in chunks variable
+    mediaRecorder.ondataavailable = function (ev) {
+      chunks.push(ev.data);
+    };
 
     //code to broadcast the stream to mobile and web
     function webRTC() {
@@ -115,6 +107,20 @@ navigator.mediaDevices
       "stream has sent to the broadcaster API - now you can retrieve it from mobile/web"
     );
 
+    //send a timestamp to database each 2 seconds - so that it knows we are up and running
+    let activeStatusTimer = setInterval(sendActiveStatus, 2000);
+
+    async function sendActiveStatus() {
+      const documentRef = doc(db, "headLifeguards", uid);
+
+      await updateDoc(documentRef, {
+        piLastOnlineTime: +new Date(), //updating the HL collection by sending last online time of the pi board
+      });
+    }
+
+    //TODO: the function to stop the last online time updation
+    //clearInterval(activeStatusTimer);
+
     /*
     The Algorithm
       01. Get mission id and mission type. how?? continously ask from server 30minutes for each 5 second until you get it. If you don't shutdown the RasPi
@@ -124,39 +130,60 @@ navigator.mediaDevices
       05.   once it is finished, stop stream. and set the state to end
     */
 
-    //function to wait 5 seconds (for testing purposes)
-    const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+    let apiRequestTimer = setInterval(apiRequest, 5000); //perform this API request for each 5 second
 
-    const letsWait = async () => {
-      await delay(10000);
-      console.log("Waited 5s");
-      mediaRecorder.stop(); //stop the recording
-    };
+    async function apiRequest() {
+      const payload = {
+        test: "hi",
+      };
+      const { data } = await axios.post("/retrieveMissionData", payload);
+      console.log(data.missionId);
+      console.log(data.missionType);
+      //if both of those values are not empty, (that means a mobile has connected to the Pi board)
+      if (data.missionId != "" && data.missionId != "") {
+        //stop the interval function
+        clearInterval(apiRequestTimer);
+        //clear the 30 minute timeout - (stop RasPi from shutting down)
+        clearTimeout(shutDownTimeout);
+        //setup mission data
+        let missionId = data.missionId;
+        let missionType = data.missionId;
+        console.log("all good");
+        ///now we can communicate with firebase to complete next steps///
 
-    letsWait(); //let's wait 5 seconds
+        //listen to database to see whether the mission has been ended. Then end the recording and upload it.
 
-    //storing the video recording in chunks variable
-    mediaRecorder.ondataavailable = function (ev) {
-      chunks.push(ev.data);
-    };
+        //function to wait 5 seconds (for testing purposes)
+        const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-    //this runs whenever the recording of the video get stopped
-    mediaRecorder.onstop = (ev) => {
-      let blob = new Blob(chunks, { type: "video/webm;" });
-      chunks = [];
+        const letsWait = async () => {
+          console.log("starting the wait");
+          await delay(5000);
+          console.log("Waited 5s");
+          mediaRecorder.stop(); //stop the recording
+        };
 
-      ///upload the recorded video to the firebase storage///
+        letsWait(); //let's wait 5 seconds
 
-      // Get a reference to the storage service
-      // const storage = getStorage();
-      // // Create a storage reference from storage service
-      // const storageRef = ref(storage, "vids/test.webm");
-      // // uploading the blob to the firebase
-      // uploadBytes(storageRef, blob).then((snapshot) => {
-      //   console.log("Uploaded the blob!");
-      // });
-      console.log("test done");
-    };
+        //this runs whenever the recording of the video get stopped
+        mediaRecorder.onstop = (ev) => {
+          let blob = new Blob(chunks, { type: "video/webm;" });
+          chunks = [];
+
+          ///upload the recorded video to the firebase storage///
+
+          // //Get a reference to the storage service
+          // const storage = getStorage();
+          // // Create a storage reference from storage service
+          // const storageRef = ref(storage, "vids/test1.webm");
+          // // uploading the blob to the firebase
+          // uploadBytes(storageRef, blob).then((snapshot) => {
+          //   console.log("Uploaded the recording to Firebase successfully!");
+          // });
+          console.log("test done");
+        };
+      }
+    }
   })
   .catch(function (err) {
     console.log(err.name, err.message);
