@@ -101,7 +101,36 @@ function handleTrackEvent(e, peer) {
   senderStream = e.streams[0]; //getting the stream from broadcaster to senderStream vairiable
 }
 
-//the broadcaster will send its stream to the server via this endpoint
+//raspi will consume audio stream coming from mobile this API
+app.post("/audioConsumer", async ({ body }, res) => {
+  const peer = new webrtc.RTCPeerConnection();
+  // {
+  //   iceServers: [
+  //     {
+  //       urls: "stun:stun.stunprotocol.org:3478",
+  //     },
+  //     iceTransportPolicy : "relay",
+
+  //   ],
+  // }
+
+  const desc = new webrtc.RTCSessionDescription(body.sdp); //getting the consumer sdp (consumers offer)
+  await peer.setRemoteDescription(desc); //setting it as the remote peer description
+
+  //what we received from broadcaster will be transmitted to the consumer
+  senderAudioStream
+    .getTracks()
+    .forEach((track) => peer.addTrack(track, senderAudioStream));
+  const answer = await peer.createAnswer(); //create my answer to the consumer offer
+  await peer.setLocalDescription(answer);
+  const payload = {
+    sdp: peer.localDescription,
+  };
+
+  res.json(payload); //sending my answer to the peer
+});
+
+//the mobile device will send its audio to this API
 app.post("/audioBroadcaster", async ({ body }, res) => {
   const peer = new webrtc.RTCPeerConnection(); //returns a newly-created RTCPeerConnection, which represents a connection between the local device and a remote peer.
 
@@ -112,9 +141,8 @@ app.post("/audioBroadcaster", async ({ body }, res) => {
   //     },
   //   ],
   // }
-  //in the above RTCPeerConnection we are actually not specifiying any STUN serrver - connections will only be local
 
-  //when a track is received to the server from the broadcaster, this ontrack event gets raised and handleTrackEvent function is called
+  //when a track is received to the server from the broadcaster, this ontrack event gets raised and handleAudioTrackEvent function is called
   peer.ontrack = (e) => handleAudioTrackEvent(e, peer);
 
   //parsing the sdp received from mobile
