@@ -26,7 +26,7 @@ app.post("/retrieveMissionData", async ({ body }, res) => {
   const payload = {
     missionId: missionId,
     missionType: missionType,
-    isAudio: isAudio,
+    isAudio: isAudio, //this will be sent by the mobile who engaged in the mission
   };
   res.json(payload); //sending the current mission data
 });
