@@ -10,8 +10,11 @@ import openurl from "openurl";
 openurl.open("http://localhost:5000/");
 
 let senderStream; //this variable contains the stream received from the broadcaster (from the pi camera)
+let senderAudioStream; //this variable contains the audio stream
+
 let missionId = "";
 let missionType = "";
+let isAudio = false; //this flag is used to identify the mobile who is connecting with an audio stream
 
 app.use(express.static("public"));
 app.use(bodyParser.json());
@@ -23,6 +26,7 @@ app.post("/retrieveMissionData", async ({ body }, res) => {
   const payload = {
     missionId: missionId,
     missionType: missionType,
+    isAudio: isAudio,
   };
   res.json(payload); //sending the current mission data
 });
@@ -95,6 +99,43 @@ app.post("/broadcast", async ({ body }, res) => {
 
 function handleTrackEvent(e, peer) {
   senderStream = e.streams[0]; //getting the stream from broadcaster to senderStream vairiable
+}
+
+//the broadcaster will send its stream to the server via this endpoint
+app.post("/audioBroadcaster", async ({ body }, res) => {
+  const peer = new webrtc.RTCPeerConnection(); //returns a newly-created RTCPeerConnection, which represents a connection between the local device and a remote peer.
+
+  // {
+  //   iceServers: [
+  //     {
+  //       urls: "stun:stun.stunprotocol.org:3478",
+  //     },
+  //   ],
+  // }
+  //in the above RTCPeerConnection we are actually not specifiying any STUN serrver - connections will only be local
+
+  //when a track is received to the server from the broadcaster, this ontrack event gets raised and handleTrackEvent function is called
+  peer.ontrack = (e) => handleAudioTrackEvent(e, peer);
+
+  //parsing the sdp received from mobile
+  const theSDP = JSON.parse(body.sdp);
+  isAudio = body.isAudio; //setting the status flag
+  const desc = new webrtc.RTCSessionDescription(theSDP); //getting the consumer sdp (consumers offer)
+  await peer.setRemoteDescription(desc); //setting it as the remote peer description
+
+  const answer = await peer.createAnswer(); //create server's answer to that offer - we need to send it to broadcaster back
+  await peer.setLocalDescription(answer); //setting it as the local peer description
+
+  //to send server sdp back to broadcaster
+  const payload = {
+    sdp: peer.localDescription,
+  };
+  // isAudioAvailable = true;
+  res.json(payload); //setting the response including local SDP
+});
+
+function handleAudioTrackEvent(e, peer) {
+  senderAudioStream = e.streams[0]; //getting the stream from broadcaster to senderStream variable
 }
 
 app.listen(5000, () =>
