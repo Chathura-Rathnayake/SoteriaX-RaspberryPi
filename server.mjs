@@ -158,7 +158,6 @@ app.post("/audioBroadcaster", async ({ body }, res) => {
   const payload = {
     sdp: peer.localDescription,
   };
-  // isAudioAvailable = true;
   res.json(payload); //setting the response including local SDP
 });
 
