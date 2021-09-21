@@ -208,7 +208,8 @@ navigator.mediaDevices
               //change the currentStage to uploading
               const documentRef = doc(db, "operations", missionId);
               await updateDoc(documentRef, {
-                currentStage: 6, //stage is uploading
+                currentStage: 6,
+                currentStatus: "Mission Video Uploading", //stage is uploading
               });
             }
             updateOperations1();
@@ -222,6 +223,7 @@ navigator.mediaDevices
               async function updateOperations2() {
                 await updateDoc(documentRef, {
                   currentStage: 7, //stage is uploading
+                  currentStatus: "Mission ended",
                   operationStatus: "ended", //status is "ended"
                 });
               }
@@ -234,7 +236,8 @@ navigator.mediaDevices
               //change the currentStage to uploading
               const documentRef = doc(db, "trainingOperations", missionId);
               await updateDoc(documentRef, {
-                currentStage: 6, //stage is uploading
+                currentStage: 6,
+                currentStatus: "Mission Video Uploading", //stage is uploading
               });
             }
             updateTraining1();
@@ -249,6 +252,8 @@ navigator.mediaDevices
                 await updateDoc(documentRef, {
                   currentStage: 7, //stage is uploading
                   completed: true, //setting the completed to true
+                  currentStatus: "Mission ended",
+                  operationStatus: "ended", //status is "ended"
                 });
               }
               updateTraining2();
